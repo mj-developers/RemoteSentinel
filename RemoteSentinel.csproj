@@ -8,4 +8,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Remove="appsettings.template.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.template.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SSH.NET" Version="2025.0.0" />
+  </ItemGroup>
+
 </Project>
