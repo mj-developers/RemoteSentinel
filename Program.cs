@@ -1,14 +1,22 @@
 using System;
+using System.Threading;
 using System.Windows.Forms;
 
-namespace RemoteSentinel;
-
-internal static class Program
+namespace RemoteSentinel
 {
-    [STAThread]
-    static void Main()
+    internal static class Program
     {
-        ApplicationConfiguration.Initialize();
-        Application.Run(new StatusTrayForm());
+        [STAThread]
+        static void Main()
+        {
+            using var mutex = new Mutex(initiallyOwned: true, "RemoteSentinel.SingleInstance", out bool isNew);
+            if (!isNew)
+            {
+                return;
+            }
+
+            ApplicationConfiguration.Initialize();
+            Application.Run(new StatusTrayForm());
+        }
     }
 }
