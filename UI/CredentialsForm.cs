@@ -14,16 +14,22 @@ namespace RemoteSentinel.UI
         private readonly TextBox _txtHost;
         private readonly TextBox _txtUser;
         private readonly TextBox _txtPass;
+        private readonly TextBox _txtAlias; // Alias local (obligatorio)
 
         public string Host => _txtHost.Text.Trim();
         public string Username => _txtUser.Text.Trim();
         public string Password => _txtPass.Text.Trim();
+        public string Alias => _txtAlias.Text.Trim();
 
         /// Constructor sin parámetros (uso inicial o creación por defecto)
-        public CredentialsForm() : this("", "", "") { }
+        public CredentialsForm() : this("", "", "", "") { }
 
-        /// Constructor con valores por defecto (ej: al reconfigurar credenciales)
+        /// Constructor con valores por defecto (ej: al reconfigurar credenciales, sin alias)
         public CredentialsForm(string defaultHost, string defaultUser, string defaultPass)
+            : this(defaultHost, defaultUser, defaultPass, "") { }
+
+        /// Constructor con valores por defecto (incluye alias)
+        public CredentialsForm(string defaultHost, string defaultUser, string defaultPass, string defaultAlias)
         {
             const int LOGO_SIZE = 128;
             const int LOGO_BOTTOM_MARGIN = 16;
@@ -45,10 +51,10 @@ namespace RemoteSentinel.UI
                 if (File.Exists(iconPath))
                     Icon = new Icon(iconPath);
             }
-            catch {}
+            catch { }
 
             // Dimensiones y estilo
-            ClientSize = new Size(600, 460);
+            ClientSize = new Size(600, 480);
             Padding = new Padding(16);
             BackColor = SystemColors.Control;
 
@@ -130,32 +136,34 @@ namespace RemoteSentinel.UI
             // Host
             var lblHost = new Label { Text = "Host:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 6, 12, 6) };
             _txtHost = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 3, 0, 3), Text = defaultHost };
-
             if (string.IsNullOrWhiteSpace(_txtHost.Text))
                 _txtHost.PlaceholderText = "Introduce la IP del servidor";
-
             fields.Controls.Add(lblHost, 0, 0);
             fields.Controls.Add(_txtHost, 1, 0);
 
             // Usuario
             var lblUser = new Label { Text = "Usuario:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 6, 12, 6) };
             _txtUser = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 3, 0, 3), Text = defaultUser };
-
             if (string.IsNullOrWhiteSpace(_txtUser.Text))
                 _txtUser.PlaceholderText = "Introduce el usuario";
-
             fields.Controls.Add(lblUser, 0, 1);
             fields.Controls.Add(_txtUser, 1, 1);
 
             // Contraseña
             var lblPass = new Label { Text = "Contraseña:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 6, 12, 6) };
             _txtPass = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 3, 0, 3), UseSystemPasswordChar = true, Text = defaultPass };
-
             if (string.IsNullOrWhiteSpace(_txtPass.Text))
                 _txtPass.PlaceholderText = "Introduce la contraseña";
-
             fields.Controls.Add(lblPass, 0, 2);
             fields.Controls.Add(_txtPass, 1, 2);
+
+            // Alias (obligatorio)
+            var lblAlias = new Label { Text = "Alias:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 6, 12, 6) };
+            _txtAlias = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(0, 3, 0, 3), Text = string.IsNullOrWhiteSpace(defaultAlias) ? "" : defaultAlias };
+            if (string.IsNullOrWhiteSpace(_txtAlias.Text))
+                _txtAlias.PlaceholderText = "Cómo te verán los demás";
+            fields.Controls.Add(lblAlias, 0, 3);
+            fields.Controls.Add(_txtAlias, 1, 3);
 
             // Botones
             var buttonsRow = new TableLayoutPanel
@@ -192,7 +200,8 @@ namespace RemoteSentinel.UI
             {
                 if (string.IsNullOrWhiteSpace(_txtHost.Text)) _txtHost.Focus();
                 else if (string.IsNullOrWhiteSpace(_txtUser.Text)) _txtUser.Focus();
-                else _txtPass.Focus();
+                else if (string.IsNullOrWhiteSpace(_txtPass.Text)) _txtPass.Focus();
+                else _txtAlias.Focus();
             };
 
             // Validación mínima al pulsar "Aceptar"
@@ -204,6 +213,8 @@ namespace RemoteSentinel.UI
                 { MessageBox.Show(this, "Introduce el usuario.", "Falta usuario", MessageBoxButtons.OK, MessageBoxIcon.Warning); _txtUser.Focus(); DialogResult = DialogResult.None; return; }
                 if (string.IsNullOrWhiteSpace(_txtPass.Text))
                 { MessageBox.Show(this, "Introduce la contraseña.", "Falta contraseña", MessageBoxButtons.OK, MessageBoxIcon.Warning); _txtPass.Focus(); DialogResult = DialogResult.None; return; }
+                if (string.IsNullOrWhiteSpace(_txtAlias.Text))
+                { MessageBox.Show(this, "Introduce un alias.", "Falta alias", MessageBoxButtons.OK, MessageBoxIcon.Warning); _txtAlias.Focus(); DialogResult = DialogResult.None; return; }
             };
         }
 
