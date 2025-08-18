@@ -6,54 +6,93 @@ using RemoteSentinel.Core.Security;
 namespace RemoteSentinel.Core.Services;
 
 /// <summary>
-/// Servicio para cargar y guardar la configuración de la aplicación desde el archivo JSON "appsettings.json".
+/// Servicio de configuración:
+/// - Lee la config de %APPDATA%\RemoteSentinel\appsettings.json
+/// - En primera ejecución, copia appsettings.template.json desde la carpeta de instalación (Program Files).
+/// - Nunca escribe en Program Files.
 /// </summary>
 internal static class ConfigService
 {
-    /// Carga la configuración desde "appsettings.json".
+    private static string UserConfigDir =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RemoteSentinel");
+
+    private static string UserConfigPath =>
+        Path.Combine(UserConfigDir, "appsettings.json");
+
+    private static string InstalledTemplatePath =>
+        Path.Combine(AppContext.BaseDirectory, "appsettings.template.json");
+
+    /// Carga la configuración. Devuelve en 'path' la ruta del JSON de usuario.
     internal static AppConfig Load(out string path)
     {
-        string basePath = AppContext.BaseDirectory;
-        path = Path.Combine(basePath, "appsettings.json");
-        string tplPath = Path.Combine(basePath, "appsettings.template.json");
+        Directory.CreateDirectory(UserConfigDir);
 
+        // Si no existe el JSON de usuario, copiar el template instalado (si existe)
+        if (!File.Exists(UserConfigPath))
+        {
+            try
+            {
+                if (File.Exists(InstalledTemplatePath))
+                {
+                    File.Copy(InstalledTemplatePath, UserConfigPath, overwrite: false);
+                }
+                else
+                {
+                    // crea vacío si tampoco hay template
+                    File.WriteAllText(UserConfigPath, "{}", Encoding.UTF8);
+                }
+            }
+            catch
+            {
+                // última red: intenta crear vacío para no romper el arranque
+                try { if (!File.Exists(UserConfigPath)) File.WriteAllText(UserConfigPath, "{}", Encoding.UTF8); } catch { }
+            }
+        }
+
+        path = UserConfigPath;
+
+        // Leer JSON de usuario
         AppConfig cfg;
-
-        // Caso 1: Si existe el archivo de configuración principal
-        if (File.Exists(path))
+        try
         {
-            // Leemos el contenido JSON y lo deserializamos a AppConfig
-            string json = File.ReadAllText(path, Encoding.UTF8);
-            cfg = JsonSerializer.Deserialize<AppConfig>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
-
-            bool migrated = false;
-            // Migración de datos sensibles: si no están protegidos, se protegen
-            if (!string.IsNullOrEmpty(cfg.Server.Password) && !SecretProtector.IsProtected(cfg.Server.Password)) { cfg.Server.Password = SecretProtector.Protect(cfg.Server.Password); migrated = true; }
-            if (!string.IsNullOrEmpty(cfg.Server.Username) && !SecretProtector.IsProtected(cfg.Server.Username)) { cfg.Server.Username = SecretProtector.Protect(cfg.Server.Username); migrated = true; }
-            if (!string.IsNullOrEmpty(cfg.Server.Host) && !SecretProtector.IsProtected(cfg.Server.Host)) { cfg.Server.Host = SecretProtector.Protect(cfg.Server.Host); migrated = true; }
-            if (migrated) Save(cfg, path);
-        }
-        // Caso 2: Si no existe el archivo principal pero sí la plantilla
-        else if (File.Exists(tplPath))
-        {
-            string json = File.ReadAllText(tplPath, Encoding.UTF8);
+            string json = File.ReadAllText(UserConfigPath, Encoding.UTF8);
             cfg = JsonSerializer.Deserialize<AppConfig>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
         }
-        // Caso 3: No existe nada, se crea una configuración vacía por defecto
-        else
+        catch
         {
             cfg = new();
         }
 
+        // Migración de datos sensibles → proteger si vinieran en claro
+        bool migrated = false;
+        try
+        {
+            if (!string.IsNullOrEmpty(cfg.Server.Password) && !SecretProtector.IsProtected(cfg.Server.Password)) { cfg.Server.Password = SecretProtector.Protect(cfg.Server.Password); migrated = true; }
+            if (!string.IsNullOrEmpty(cfg.Server.Username) && !SecretProtector.IsProtected(cfg.Server.Username)) { cfg.Server.Username = SecretProtector.Protect(cfg.Server.Username); migrated = true; }
+            if (!string.IsNullOrEmpty(cfg.Server.Host) && !SecretProtector.IsProtected(cfg.Server.Host)) { cfg.Server.Host = SecretProtector.Protect(cfg.Server.Host); migrated = true; }
+            if (migrated) Save(cfg, path); // guarda ya migrado en %APPDATA%
+        }
+        catch { /* best-effort */ }
+
+        // Defaults mínimos
         if (cfg.Probe.IntervalSeconds < 2) cfg.Probe.IntervalSeconds = 5;
         if (cfg.Server.RdpPort <= 0) cfg.Server.RdpPort = 3389;
+
         return cfg;
     }
 
-    /// Guarda la configuración en disco como JSON con formato indentado.
-    internal static void Save(AppConfig cfg, string path)
+    /// Guarda SIEMPRE en %APPDATA%\RemoteSentinel\appsettings.json (se ignora Program Files).
+    internal static void Save(AppConfig cfg, string _ /*path ignorado intencionalmente*/)
     {
-        string json = JsonSerializer.Serialize(cfg, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(path, json, Encoding.UTF8);
+        try
+        {
+            Directory.CreateDirectory(UserConfigDir);
+            string json = JsonSerializer.Serialize(cfg, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(UserConfigPath, json, Encoding.UTF8);
+        }
+        catch
+        {
+            // Puedes loguear si tienes logger; aquí silencioso para no romper UI
+        }
     }
 }
