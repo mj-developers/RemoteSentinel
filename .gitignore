@@ -428,3 +428,8 @@ appsettings.*.local.json
 
 # Publicaciones locales
 **/publish/
+
+/installer/output/
+/publish/
+/bin/
+/obj/

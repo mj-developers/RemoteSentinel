@@ -1,0 +1,52 @@
+name: Build & Release (by tag)
+
+on:
+  push:
+    tags:
+      - 'v*'   # se ejecuta cuando pushes un tag vX.Y.Z
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Publish (win-x64 self-contained)
+        run: dotnet publish ./RemoteSentinel.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/win-x64
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Version from tag
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart('v')
+          echo "VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build installer (Inno)
+        run: |
+          iscc.exe installer\setup.iss /DMyAppVersion=${{ env.VERSION }} /DPublishDir="publish\win-x64"
+
+      - name: Create GitHub Release (attach exe)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: RemoteSentinel ${{ env.VERSION }}
+          generate_release_notes: true
+          files: |
+            installer\output\*.exe
