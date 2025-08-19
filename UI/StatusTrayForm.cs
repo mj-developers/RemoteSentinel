@@ -18,7 +18,7 @@ namespace RemoteSentinel
     {
         private NotifyIcon _tray;
         private ContextMenuStrip _menu;
-        private WinTimer _timer;
+        private WinTimer? _timer;
         private Icon _iconGreen, _iconRed, _iconYellow;
 
         private AppConfig _cfg = new AppConfig();
@@ -35,11 +35,11 @@ namespace RemoteSentinel
         private readonly RemoteDesktopLauncher _rdp = new RemoteDesktopLauncher();
 
         // Menú “Enviar solicitud de conexión” y cache de sesiones del último probe
-        private ToolStripMenuItem _miRequestTurn;
+        private ToolStripMenuItem? _miRequestTurn;
         private List<SessionInfo> _lastProbeSessions = new();
 
         // Presencia/beacon del ocupante
-        private WinTimer _presenceTimer; // envía beacons periódicos mientras esté conectado
+        private WinTimer? _presenceTimer; // envía beacons periódicos mientras esté conectado
 
         public StatusTrayForm()
         {
@@ -115,7 +115,8 @@ namespace RemoteSentinel
             _menu.Items.Add(new ToolStripSeparator());
 
             // Salir (seguro)
-            _menu.Items.Add("Salir", null, async delegate
+            var miSalir = new ToolStripMenuItem("Salir");
+            miSalir.Click += async delegate
             {
                 try
                 {
@@ -139,7 +140,8 @@ namespace RemoteSentinel
                     try { Application.ExitThread(); } catch { }
                 };
                 exitTimer.Start();
-            });
+            };
+            _menu.Items.Add(miSalir);
 
             // Refrescar estado cuando se abre el menú
             _menu.Opening += delegate
@@ -337,7 +339,7 @@ namespace RemoteSentinel
                 // ← CLAVE: solo el beacon decide si mostramos "ocupado"
                 var occ = await PresenceService.GetCurrentOccupantAsync(_cfg); // ya con TTL
                 bool ocupadoPorBeacon = (occ != null);
-                string alias = occ?.Alias;
+                string? alias = occ?.Alias;
 
                 if (_tray != null)
                 {

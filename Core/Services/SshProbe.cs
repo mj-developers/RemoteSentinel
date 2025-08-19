@@ -114,12 +114,20 @@ namespace RemoteSentinel.Core.Services
         /// Intenta leer el occupant.json de primario o fallback.
         /// Devuelve el OccupantInfo solo si es reciente (<= TTL). Si está obsoleto, lo borra.
         /// </summary>
-        private static OccupantInfo? TryReadFreshOccupantViaSftp(string host, int port, string user, string? pass, out bool deletedStale)
+        private static OccupantInfo? TryReadFreshOccupantViaSftp(
+    string host, int port, string user, string? pass, out bool deletedStale)
         {
             deletedStale = false;
             try
             {
-                using var sftp = new SftpClient(host, port, user, pass);
+                // Construir métodos de autenticación (solo password si viene)
+                var methods = new List<AuthenticationMethod>();
+                if (!string.IsNullOrEmpty(pass))
+                    methods.Add(new PasswordAuthenticationMethod(user, pass));
+
+                var info = new ConnectionInfo(host, port, user, methods.ToArray());
+
+                using var sftp = new SftpClient(info);
                 sftp.ConnectionInfo.Timeout = TimeSpan.FromSeconds(5);
                 sftp.Connect();
 
@@ -146,6 +154,7 @@ namespace RemoteSentinel.Core.Services
                 return null;
             }
         }
+
 
         private static OccupantInfo? TryReadJson(SftpClient sftp, string path)
         {
