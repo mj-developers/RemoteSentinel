@@ -39,8 +39,11 @@ jobs:
           echo "VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Build installer (Inno)
+        shell: pwsh
         run: |
-          iscc.exe installer\setup.iss /DMyAppVersion=${{ env.VERSION }} /DPublishDir="publish\win-x64"
+          $pub = "${{ github.workspace }}\publish\win-x64"
+          iscc.exe installer\setup.iss /DMyAppVersion=${{ env.VERSION }} /DPublishDir="$pub"
+
 
       - name: Create GitHub Release (attach exe)
         uses: softprops/action-gh-release@v2
