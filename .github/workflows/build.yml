@@ -1,0 +1,47 @@
+name: CI Build (Windows)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:   # permite lanzarlo manualmente
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # Ajusta si tu proyecto usa otra versión
+          dotnet-version: 8.0.x
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore RemoteSentinel.sln
+
+      - name: Build (Release)
+        run: dotnet build RemoteSentinel.sln --configuration Release --no-restore
+
+      # OPCIONAL: publicar compilado listo para ejecutar (self-contained) en win-x64
+      - name: Publish (self-contained win-x64)
+        run: dotnet publish ./RemoteSentinel.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/win-x64
+
+      # Sube el resultado como artefacto descargable
+      - name: Upload published app
+        uses: actions/upload-artifact@v4
+        with:
+          name: RemoteSentinel-win-x64
+          path: publish/win-x64/**
